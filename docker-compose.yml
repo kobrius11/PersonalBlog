@@ -1,0 +1,45 @@
+version: '3.7'
+services:
+  personal_blog:
+    build: .
+    image: python:personal_blog
+    container_name: personal_blog.dev
+    tty: true
+    stdin_open: true
+    restart: always
+    ports:
+      - 8000:8000
+    volumes:
+      - ./personal_blog:/app
+    depends_on:
+      - db
+    links:
+      - db:postgres
+    command: >
+      bash -c "python wait_for_postgres.py &&
+               python manage.py migrate &&
+               python manage.py collectstatic --noinput &&
+               gunicorn personal_blog.wsgi --bind 0.0.0.0:8000"
+  db:
+    image: postgres
+    container_name: personal_blog.db
+    restart: always
+    ports:
+      - 5432:5432
+    volumes:
+      - ./dbdata:/var/lib/postgresql/data
+    env_file:
+      - .env
+  
+  nginx:
+    build: ./nginx/.
+    image: nginx:personal_blog
+    container_name: personal_blog.nginx
+    restart: always
+    ports:
+      - 80:80
+    links:
+      - personal_blog:personal_blog
+    volumes:
+      - ./personal_blog/media:/app/media
+      - ./personal_blog/static:/app/static
